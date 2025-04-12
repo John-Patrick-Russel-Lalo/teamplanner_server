@@ -2,28 +2,38 @@ const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
 
-// Set up Express app
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Optional: send a response to pings or direct visits
 app.get('/', (req, res) => {
   res.send('WebSocket server is running!');
 });
 
-// Create HTTP server and attach both Express and WebSocket
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 const clients = new Set();
+const messageHistory = [];
 
 wss.on('connection', (socket) => {
   clients.add(socket);
   console.log('Client connected');
 
+  // Send chat history to the new client
+  messageHistory.forEach((msg) => {
+    if (socket.readyState === WebSocket.OPEN) {
+      socket.send(msg);
+    }
+  });
+
   socket.on('message', (message) => {
     const text = message.toString();
 
+    // Store message in history
+    messageHistory.push(text);
+    if (messageHistory.length > 100) messageHistory.shift(); // Optional: keep only last 100
+
+    // Broadcast to all other clients
     for (let client of clients) {
       if (client !== socket && client.readyState === WebSocket.OPEN) {
         client.send(text);
@@ -37,7 +47,6 @@ wss.on('connection', (socket) => {
   });
 });
 
-// Start the server
 server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
