@@ -15,17 +15,28 @@ const wss = new WebSocket.Server({ server });
 const clients = new Set();
 const messageHistory = [];
 
-const counts = 0;
+let counts = 0;
+
+function broadcastOnlineCount() {
+  const countOnline = JSON.stringify({
+    type: 'onlineCount',
+    count: counts
+  });
+
+  for (let client of clients) {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(countOnline);
+    }
+  }
+}
 
 wss.on('connection', (socket) => {
   clients.add(socket);
-  console.log('Client connected');
   counts++;
-  const countOnline = JSON.stringify({
-       type: 'onlineCount',
-       count: counts
-  )}
-  socket.send(countOnline);
+  console.log('Client connected');
+
+  // Send online count to all clients
+  broadcastOnlineCount();
 
   // Send chat history to the new client
   messageHistory.forEach((msg) => {
@@ -35,23 +46,36 @@ wss.on('connection', (socket) => {
   });
 
   socket.on('message', (message) => {
-    const text = message.toString();
+    let data;
+    try {
+      data = JSON.parse(message);
+    } catch (e) {
+      console.error('Invalid JSON:', message);
+      return;
+    }
 
-    // Store message in history
-    messageHistory.push(text);
-    if (messageHistory.length > 200) messageHistory.shift(); // Optional: keep only last 100
+    if (data.type === 'chat') {
+      const fullMsg = JSON.stringify({
+        type: 'chat',
+        message: data.message
+      });
 
-    // Broadcast to all other clients
-    for (let client of clients) {
-      if (client !== socket && client.readyState === WebSocket.OPEN) {
-        client.send(text);
+      messageHistory.push(fullMsg);
+      if (messageHistory.length > 200) messageHistory.shift();
+
+      for (let client of clients) {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(fullMsg);
+        }
       }
     }
   });
 
   socket.on('close', () => {
     clients.delete(socket);
+    counts--;
     console.log('Client disconnected');
+    broadcastOnlineCount();
   });
 });
 
