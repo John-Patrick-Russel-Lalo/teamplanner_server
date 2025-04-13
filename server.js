@@ -22,7 +22,7 @@ wss.on('connection', (socket) => {
   console.log('Client connected');
   counts++;
   const countOnline = JSON.stringify({
-       type: 'onlineCount",
+       type: 'onlineCount',
        count: counts
   )}
   socket.send(countOnline);
