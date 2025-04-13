@@ -15,9 +15,17 @@ const wss = new WebSocket.Server({ server });
 const clients = new Set();
 const messageHistory = [];
 
+const counts = 0;
+
 wss.on('connection', (socket) => {
   clients.add(socket);
   console.log('Client connected');
+  counts++;
+  const countOnline = JSON.stringify({
+       type: 'onlineCount",
+       count: counts
+  )}
+  socket.send(countOnline);
 
   // Send chat history to the new client
   messageHistory.forEach((msg) => {
