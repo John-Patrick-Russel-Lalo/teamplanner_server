@@ -31,7 +31,7 @@ wss.on('connection', (socket) => {
 
     // Store message in history
     messageHistory.push(text);
-    if (messageHistory.length > 5) messageHistory.shift(); // Optional: keep only last 100
+    if (messageHistory.length > 200) messageHistory.shift(); // Optional: keep only last 100
 
     // Broadcast to all other clients
     for (let client of clients) {
