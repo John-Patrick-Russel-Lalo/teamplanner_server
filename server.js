@@ -64,7 +64,7 @@ wss.on('connection', (socket) => {
       if (messageHistory.length > 200) messageHistory.shift();
 
       for (let client of clients) {
-        if (client.readyState === WebSocket.OPEN) {
+        if (client !== socket && client.readyState === WebSocket.OPEN) {
           client.send(fullMsg);
         }
       }
