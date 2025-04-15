@@ -1,6 +1,8 @@
 const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
+const { Pool } = require('pg');
+require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -17,10 +19,18 @@ const messageHistory = [];
 
 let counts = 0;
 
+// PostgreSQL connection
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false,
+  },
+});
+
 function broadcastOnlineCount() {
   const countOnline = JSON.stringify({
     type: 'onlineCount',
-    count: counts
+    count: counts,
   });
 
   for (let client of clients) {
@@ -35,17 +45,15 @@ wss.on('connection', (socket) => {
   counts++;
   console.log('Client connected');
 
-  // Send online count to all clients
   broadcastOnlineCount();
 
-  // Send chat history to the new client
   messageHistory.forEach((msg) => {
     if (socket.readyState === WebSocket.OPEN) {
       socket.send(msg);
     }
   });
 
-  socket.on('message', (message) => {
+  socket.on('message', async (message) => {
     let data;
     try {
       data = JSON.parse(message);
@@ -57,7 +65,7 @@ wss.on('connection', (socket) => {
     if (data.type === 'chat') {
       const fullMsg = JSON.stringify({
         type: 'chat',
-        message: data.message
+        message: data.message,
       });
 
       messageHistory.push(fullMsg);
@@ -67,6 +75,34 @@ wss.on('connection', (socket) => {
         if (client !== socket && client.readyState === WebSocket.OPEN) {
           client.send(fullMsg);
         }
+      }
+    }
+
+    // New: Save board updates to DB
+    if (data.type === 'updateBoard') {
+      const { projectId, boardData } = data;
+
+      if (!projectId || !boardData) return;
+
+      try {
+        await pool.query(
+          'UPDATE projects SET board = $1 WHERE id = $2',
+          [JSON.stringify(boardData), projectId]
+        );
+
+        const updateMsg = JSON.stringify({
+          type: 'updateBoard',
+          projectId,
+          boardData,
+        });
+
+        for (let client of clients) {
+          if (client !== socket && client.readyState === WebSocket.OPEN) {
+            client.send(updateMsg);
+          }
+        }
+      } catch (err) {
+        console.error('DB update error:', err);
       }
     }
   });
