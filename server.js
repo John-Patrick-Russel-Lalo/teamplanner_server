@@ -21,7 +21,7 @@ let counts = 0;
 
 // PostgreSQL connection
 const pool = new Pool({
-  connectionString: "postgres://neondb_owner:npg_ROonCGkQK96e@ep-floral-wildflower-a1hy774a-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require",
+  connectionString: process.env.DATABASE_URL,
   ssl: {
     rejectUnauthorized: false,
   },
